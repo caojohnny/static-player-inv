@@ -8,14 +8,22 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class Main extends JavaPlugin implements Listener {
     private static final int PLAYER_CRAFT_INV_SIZE = 5;
     private static final long INV_UPDATE_INTERVAL = 20L;
+
+    private final Map<Player, BukkitTask> itemRetentionTasks =
+        new HashMap<>();
 
     @Override
     public void onEnable() {
@@ -24,11 +32,9 @@ public class Main extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
         ItemStack ring = new ItemStack(Material.DIAMOND_SWORD);
-
-        Bukkit.getScheduler().runTaskTimer(this, () -> {
-            Player player = event.getPlayer();
-
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(this, () -> {
             InventoryView view = player.getOpenInventory();
 
             // If the open inventory is a player inventory
@@ -40,6 +46,17 @@ public class Main extends JavaPlugin implements Listener {
                 crafting.setItem(1, ring);
             }
         }, 0L, INV_UPDATE_INTERVAL);
+
+        this.itemRetentionTasks.put(player, task);
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        BukkitTask task = this.itemRetentionTasks.remove(player);
+        if (task != null) {
+            task.cancel();
+        }
     }
 
     @EventHandler
